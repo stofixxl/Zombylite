@@ -1,23 +1,58 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(Rigidbody))]
 public class PlayerMovement : MonoBehaviour
 {
-    public float moveSpeed = 5f;
+    [Header("Movement")]
+    [SerializeField] private float moveSpeed = 5f;
+    [SerializeField] private float jumpForce = 7f;
 
     private Rigidbody rb;
+    private PlayerInputActions inputActions;
 
-    private void Start()
+    private Vector2 moveInput;
+    private bool jumpPressed;
+
+    private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        inputActions = new PlayerInputActions();
+    }
+
+    private void OnEnable()
+    {
+        inputActions.Player.Enable();
+
+        inputActions.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
+        inputActions.Player.Move.canceled += ctx => moveInput = Vector2.zero;
+
+    }
+
+    private void OnDisable()
+    {
+        inputActions.Player.Disable();
     }
 
     private void FixedUpdate()
     {
-        float moveX = Input.GetAxis("Horizontal");
-        float moveZ = Input.GetAxis("Vertical");
+        // Движение по горизонтали
+        Vector3 move = new Vector3(moveInput.x, 0f, moveInput.y);
+        Vector3 velocity = move * moveSpeed;
+        velocity.y = rb.linearVelocity.y; // сохраняем гравитацию
 
-        Vector3 movement = new Vector3(moveX, 0f, moveZ);
+        rb.linearVelocity = velocity;
 
-        rb.MovePosition(rb.position + movement * moveSpeed * Time.fixedDeltaTime);
+        // Прыжок
+        if (jumpPressed && IsGrounded())
+        {
+            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+            jumpPressed = false;
+        }
+    }
+
+    private bool IsGrounded()
+    {
+        return Physics.Raycast(transform.position, Vector3.down, 1.1f);
     }
 }
