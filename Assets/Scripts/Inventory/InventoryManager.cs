@@ -23,7 +23,7 @@ public class InventoryManager : MonoBehaviour
 
     private List<InventorySlot> slots = new List<InventorySlot>();
 
-    // Событие, на которое потом подпишется UI
+    // UI сможет подписаться на это событие и обновляться после изменений.
     public System.Action OnInventoryChanged;
 
     private void Awake()
@@ -36,79 +36,107 @@ public class InventoryManager : MonoBehaviour
 
     public bool AddItem(ItemData item, int amount = 1)
     {
-        if (item == null) return false;
+        if (item == null || amount <= 0)
+            return false;
 
-        // Сначала пытаемся добавить в существующий стак
-        if (item.maxStack > 1)
+        int stackSize = Mathf.Max(1, item.maxStack);
+
+        // Сначала проверяем, поместится ли ВСЁ количество.
+        // Пока ничего в инвентаре не меняем.
+        long freeSpace = 0;
+
+        foreach (var slot in slots)
         {
-            foreach (var slot in slots)
-            {
-                if (slot.item == item && slot.amount < item.maxStack)
-                {
-                    int canAdd = item.maxStack - slot.amount;
-                    int toAdd = Mathf.Min(canAdd, amount);
-                    slot.amount += toAdd;
-                    amount -= toAdd;
-
-                    if (amount <= 0)
-                    {
-                        OnInventoryChanged?.Invoke();
-                        return true;
-                    }
-                }
-            }
+            if (slot.item == item)
+                freeSpace += Mathf.Max(0, stackSize - slot.amount);
         }
 
-        // Если ещё остались предметы — создаём новые слоты
-        while (amount > 0 && slots.Count < maxSlots)
+        int freeSlots = Mathf.Max(0, maxSlots - slots.Count);
+        freeSpace += (long)freeSlots * stackSize;
+
+        if (freeSpace < amount)
+            return false;
+
+        // Теперь точно знаем, что места хватает.
+        int remaining = amount;
+
+        foreach (var slot in slots)
         {
-            int toAdd = Mathf.Min(item.maxStack, amount);
+            if (slot.item != item || slot.amount >= stackSize)
+                continue;
+
+            int toAdd = Mathf.Min(stackSize - slot.amount, remaining);
+            slot.amount += toAdd;
+            remaining -= toAdd;
+
+            if (remaining == 0)
+                break;
+        }
+
+        while (remaining > 0)
+        {
+            int toAdd = Mathf.Min(stackSize, remaining);
             slots.Add(new InventorySlot(item, toAdd));
-            amount -= toAdd;
+            remaining -= toAdd;
         }
 
         OnInventoryChanged?.Invoke();
-        return amount <= 0;
+        return true;
     }
 
     public bool RemoveItem(ItemData item, int amount = 1)
     {
-        for (int i = slots.Count - 1; i >= 0; i--)
+        if (item == null || amount <= 0)
+            return false;
+
+        // Проверяем количество ДО удаления.
+        long totalAmount = 0;
+
+        foreach (var slot in slots)
         {
-            if (slots[i].item == item)
-            {
-                if (slots[i].amount > amount)
-                {
-                    slots[i].amount -= amount;
-                    OnInventoryChanged?.Invoke();
-                    return true;
-                }
-                else
-                {
-                    amount -= slots[i].amount;
-                    slots.RemoveAt(i);
-                    if (amount <= 0)
-                    {
-                        OnInventoryChanged?.Invoke();
-                        return true;
-                    }
-                }
-            }
+            if (slot.item == item)
+                totalAmount += slot.amount;
         }
-        return false;
+
+        if (totalAmount < amount)
+            return false;
+
+        int remaining = amount;
+
+        for (int i = slots.Count - 1; i >= 0 && remaining > 0; i--)
+        {
+            if (slots[i].item != item)
+                continue;
+
+            int toRemove = Mathf.Min(slots[i].amount, remaining);
+            slots[i].amount -= toRemove;
+            remaining -= toRemove;
+
+            if (slots[i].amount == 0)
+                slots.RemoveAt(i);
+        }
+
+        OnInventoryChanged?.Invoke();
+        return true;
     }
 
     public List<InventorySlot> GetAllSlots()
     {
-        return slots;
-    }
+        // Возвращаем копии, чтобы UI не мог случайно изменить
+        // содержимое инвентаря в обход AddItem и RemoveItem.
+        List<InventorySlot> result = new List<InventorySlot>();
 
+        foreach (var slot in slots)
+            result.Add(new InventorySlot(slot.item, slot.amount));
+
+        return result;
+    }
+    [ContextMenu("Показать инвентарь в Console")]
     public void DebugInventory()
     {
         Debug.Log("=== ИНВЕНТАРЬ ===");
+
         foreach (var slot in slots)
-        {
             Debug.Log($"{slot.item.itemName} x{slot.amount}");
-        }
     }
 }

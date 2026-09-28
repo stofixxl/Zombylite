@@ -12,8 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f4f3b97abd493d43b18a6415669f2e7, type: 3}
   m_Name: Item_Beans
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
-  itemName: 
-  description: 
+  itemName: "\u041A\u043E\u043D\u0441\u0435\u0440\u0432\u044B"
+  description: "\u0411\u0430\u043D\u043A\u0430 \u043A\u043E\u043D\u0441\u0435\u0440\u0432\u043E\u0432"
   icon: {fileID: 0}
-  maxStack: 1
-  itemType: 0
+  maxStack: 5
+  itemType: 1
+  satietyRestore: 25
