@@ -40,12 +40,12 @@ public class PlayerInteraction : MonoBehaviour
         if (Physics.Raycast(ray, out hit, interactRange))
         {
             // Проверяем, есть ли на объекте скрипт Door
-            Door door = hit.collider.GetComponent<Door>();
-            if (door != null)
+            IInteractable interactable = hit.collider.GetComponent<IInteractable>();
+
+            if (interactable != null)
             {
-                door.ToggleDoor();
-                Debug.Log("Дверь переключена");
+                interactable.Interact();
+            }
             }
         }
     }
-}

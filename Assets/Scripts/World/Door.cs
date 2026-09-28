@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections;
 
-public class Door : MonoBehaviour
+public class Door : MonoBehaviour, IInteractable
 {
     [Header("Настройки двери")]
     public float openAngle = 90f;          // На сколько градусов открывается
@@ -43,5 +43,14 @@ public class Door : MonoBehaviour
 
         transform.localRotation = targetRotation;
         isMoving = false;
+    }
+    public void Interact()
+    {
+        ToggleDoor();
+    }
+
+    public string GetInteractionText()
+    {
+        return "Открыть дверь";
     }
 }
