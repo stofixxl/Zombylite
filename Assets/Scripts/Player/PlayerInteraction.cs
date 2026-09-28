@@ -39,13 +39,19 @@ public class PlayerInteraction : MonoBehaviour
 
         if (Physics.Raycast(ray, out hit, interactRange))
         {
-            // Проверяем, есть ли на объекте скрипт Door
+            // Сначала ищем на самом объекте
             IInteractable interactable = hit.collider.GetComponent<IInteractable>();
+
+            // Если не нашли — ищем на родителях
+            if (interactable == null)
+            {
+                interactable = hit.collider.GetComponentInParent<IInteractable>();
+            }
 
             if (interactable != null)
             {
                 interactable.Interact();
             }
-            }
         }
     }
+}

@@ -2,17 +2,23 @@ using UnityEngine;
 
 public class PickupItem : MonoBehaviour, IInteractable
 {
-    public string itemName = "Консерва";
+    public ItemData itemData;
+    public int amount = 1;
 
     public void Interact()
     {
-        InventoryManager.Instance.AddItem(itemName);
+        if (itemData == null) return;
 
-        Destroy(gameObject);
+        bool added = InventoryManager.Instance.AddItem(itemData, amount);
+        if (added)
+        {
+            Destroy(gameObject);
+        }
     }
 
     public string GetInteractionText()
     {
-        return "Подобрать " + itemName;
+        if (itemData == null) return "Подобрать";
+        return "Подобрать " + itemData.itemName;
     }
 }

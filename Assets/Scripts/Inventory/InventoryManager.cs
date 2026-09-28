@@ -5,31 +5,110 @@ public class InventoryManager : MonoBehaviour
 {
     public static InventoryManager Instance;
 
-    private Dictionary<string, int> items =
-        new Dictionary<string, int>();
+    [System.Serializable]
+    public class InventorySlot
+    {
+        public ItemData item;
+        public int amount;
+
+        public InventorySlot(ItemData item, int amount)
+        {
+            this.item = item;
+            this.amount = amount;
+        }
+    }
+
+    [Header("Настройки")]
+    public int maxSlots = 20;
+
+    private List<InventorySlot> slots = new List<InventorySlot>();
+
+    // Событие, на которое потом подпишется UI
+    public System.Action OnInventoryChanged;
 
     private void Awake()
     {
-        Instance = this;
-    }
-
-    public void AddItem(string itemName)
-    {
-        if (items.ContainsKey(itemName))
-            items[itemName]++;
+        if (Instance == null)
+            Instance = this;
         else
-            items[itemName] = 1;
-
-        DebugInventory();
+            Destroy(gameObject);
     }
 
-    private void DebugInventory()
+    public bool AddItem(ItemData item, int amount = 1)
     {
-        Debug.Log("===== ИНВЕНТАРЬ =====");
+        if (item == null) return false;
 
-        foreach (var item in items)
+        // Сначала пытаемся добавить в существующий стак
+        if (item.maxStack > 1)
         {
-            Debug.Log(item.Key + " x" + item.Value);
+            foreach (var slot in slots)
+            {
+                if (slot.item == item && slot.amount < item.maxStack)
+                {
+                    int canAdd = item.maxStack - slot.amount;
+                    int toAdd = Mathf.Min(canAdd, amount);
+                    slot.amount += toAdd;
+                    amount -= toAdd;
+
+                    if (amount <= 0)
+                    {
+                        OnInventoryChanged?.Invoke();
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // Если ещё остались предметы — создаём новые слоты
+        while (amount > 0 && slots.Count < maxSlots)
+        {
+            int toAdd = Mathf.Min(item.maxStack, amount);
+            slots.Add(new InventorySlot(item, toAdd));
+            amount -= toAdd;
+        }
+
+        OnInventoryChanged?.Invoke();
+        return amount <= 0;
+    }
+
+    public bool RemoveItem(ItemData item, int amount = 1)
+    {
+        for (int i = slots.Count - 1; i >= 0; i--)
+        {
+            if (slots[i].item == item)
+            {
+                if (slots[i].amount > amount)
+                {
+                    slots[i].amount -= amount;
+                    OnInventoryChanged?.Invoke();
+                    return true;
+                }
+                else
+                {
+                    amount -= slots[i].amount;
+                    slots.RemoveAt(i);
+                    if (amount <= 0)
+                    {
+                        OnInventoryChanged?.Invoke();
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public List<InventorySlot> GetAllSlots()
+    {
+        return slots;
+    }
+
+    public void DebugInventory()
+    {
+        Debug.Log("=== ИНВЕНТАРЬ ===");
+        foreach (var slot in slots)
+        {
+            Debug.Log($"{slot.item.itemName} x{slot.amount}");
         }
     }
 }
