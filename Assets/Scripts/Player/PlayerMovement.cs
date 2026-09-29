@@ -8,12 +8,14 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float moveSpeed = 5f;
 
     private Rigidbody rb;
+    private PlayerHealth playerHealth;
     private PlayerInputActions inputActions;
     private Vector2 moveInput;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        playerHealth = GetComponent<PlayerHealth>();
         inputActions = new PlayerInputActions();
     }
 
@@ -31,7 +33,14 @@ public class PlayerMovement : MonoBehaviour
 
     private void FixedUpdate()
     {
-        // Движение относительно направления взгляда персонажа
+        if (playerHealth != null && playerHealth.IsDead)
+        {
+            // Останавливаем движение по земле, но сохраняем действие гравитации.
+            rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+            return;
+        }
+
+        // Движение относительно направления взгляда персонажа.
         Vector3 move = transform.right * moveInput.x + transform.forward * moveInput.y;
         move.y = 0f;
         move.Normalize();
