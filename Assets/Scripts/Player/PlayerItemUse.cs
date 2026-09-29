@@ -1,29 +1,35 @@
 using UnityEngine;
 
 [RequireComponent(typeof(PlayerNeeds))]
+[RequireComponent(typeof(PlayerHealth))]
 public class PlayerItemUse : MonoBehaviour
 {
     [Header("Только для теста через Inspector")]
     [SerializeField] private ItemData testItem;
 
     private PlayerNeeds playerNeeds;
+    private PlayerHealth playerHealth;
 
     private void Awake()
     {
         playerNeeds = GetComponent<PlayerNeeds>();
+        playerHealth = GetComponent<PlayerHealth>();
     }
 
-    // Позже UI сможет вызвать этот метод для выбранного предмета.
-    // true означает, что предмет использован и удалён из инвентаря.
+    // Позже этот метод сможет вызвать кнопка UI.
+    // true — предмет успешно использован и потрачен.
     public bool TryUseItem(ItemData item)
     {
+        if (playerHealth.IsDead)
+            return false;
+
         if (item == null || item.itemType != ItemData.ItemType.Consumable)
             return false;
 
         if (item.satietyRestore <= 0)
             return false;
 
-        // Не тратим консервы, если игрок уже сыт.
+        // Не тратим еду, если сытость уже полная.
         if (playerNeeds.CurrentSatiety >= playerNeeds.MaxSatiety)
             return false;
 
@@ -35,8 +41,7 @@ public class PlayerItemUse : MonoBehaviour
             return false;
         }
 
-        // Если предмета нет в инвентаре, RemoveItem вернёт false.
-        // Сытость в таком случае не меняется.
+        // Сначала тратим предмет. Если его нет — сытость не меняется.
         if (!inventory.RemoveItem(item, 1))
             return false;
 
@@ -58,6 +63,6 @@ public class PlayerItemUse : MonoBehaviour
         if (used)
             Debug.Log($"Использован предмет: {testItem.itemName}. Сытость: {playerNeeds.CurrentSatiety}/{playerNeeds.MaxSatiety}");
         else
-            Debug.Log($"Не удалось использовать: {testItem.itemName}. Проверь сытость и наличие предмета в инвентаре.");
+            Debug.Log($"Не удалось использовать: {testItem.itemName}. Проверь здоровье, сытость и наличие предмета в инвентаре.");
     }
 }
