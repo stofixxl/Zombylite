@@ -1,50 +1,71 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.EventSystems;
 
-public class InventorySlotUI : MonoBehaviour
+public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
 {
     [SerializeField] private Image iconImage;
     [SerializeField] private TextMeshProUGUI amountText;
+    [SerializeField] private Image backgroundImage;
 
-    private void Awake()
-    {
-        FindComponents();
-    }
+    private InventoryUI owner;
+    private ItemData currentItem;
 
-    private void OnValidate()
-    {
-        FindComponents();
-    }
+    private void Awake() => FindComponents();
+    private void OnValidate() => FindComponents();
 
     private void FindComponents()
     {
-        // Ищем Image для иконки
-        if (iconImage == null)
-        {
-            Transform iconTransform = transform.Find("Icon");
-            if (iconTransform != null)
-                iconImage = iconTransform.GetComponent<Image>();
-        }
-
-        // Ищем TextMeshPro для количества
-        if (amountText == null)
-        {
-            Transform amountTransform = transform.Find("Amount");
-            if (amountTransform != null)
-                amountText = amountTransform.GetComponent<TextMeshProUGUI>();
-        }
-
-        // Если всё ещё не нашли — ищем по всем детям
-        if (amountText == null)
-            amountText = GetComponentInChildren<TextMeshProUGUI>();
+        if (backgroundImage == null)
+            backgroundImage = GetComponent<Image>();
 
         if (iconImage == null)
-            iconImage = GetComponentInChildren<Image>();
+        {
+            Transform t = transform.Find("Icon");
+            if (t != null) iconImage = t.GetComponent<Image>();
+        }
+
+        if (amountText == null)
+        {
+            Transform t = transform.Find("Amount");
+            if (t != null) amountText = t.GetComponent<TextMeshProUGUI>();
+        }
+
+        if (amountText == null) amountText = GetComponentInChildren<TextMeshProUGUI>();
+        if (iconImage == null) iconImage = GetComponentInChildren<Image>();
+    }
+
+    // InventoryUI будет вызывать это при создании слота
+    public void Bind(InventoryUI owner, ItemData item, int amount)
+    {
+        this.owner = owner;
+        currentItem = item;
+
+        if (backgroundImage != null)
+            backgroundImage.raycastTarget = true;
+
+        SetItem(item, amount);
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (owner == null || currentItem == null) return;
+        owner.OnSlotClicked(currentItem, eventData.button);
+    }
+
+    public void SetSelected(bool selected)
+    {
+        if (backgroundImage == null) return;
+        backgroundImage.color = selected
+            ? new Color(0.2f, 0.6f, 1f, 0.6f)
+            : Color.white;
     }
 
     public void SetEmpty()
     {
+        currentItem = null;
+
         if (iconImage != null)
         {
             iconImage.enabled = false;
@@ -77,8 +98,6 @@ public class InventorySlotUI : MonoBehaviour
         }
 
         if (amountText != null)
-        {
             amountText.text = amount > 1 ? amount.ToString() : "";
-        }
     }
 }

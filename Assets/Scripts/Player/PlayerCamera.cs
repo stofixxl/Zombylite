@@ -72,7 +72,8 @@ public class PlayerCamera : MonoBehaviour
                 UnlockCursor();
         }
 
-        if (Cursor.lockState != CursorLockMode.Locked &&
+        if (!UIInputBlock.IsUIOpen &&
+            Cursor.lockState != CursorLockMode.Locked &&
             Mouse.current != null &&
             Mouse.current.leftButton.wasPressedThisFrame)
         {

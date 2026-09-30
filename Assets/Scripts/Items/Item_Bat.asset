@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemName: "\u0411\u0438\u0442\u0430"
   description: "\u0414\u0435\u0440\u0435\u0432\u044F\u043D\u043D\u0430\u044F \u0431\u0438\u0442\u0430"
-  icon: {fileID: 0}
+  icon: {fileID: 10901, guid: 0000000000000000f000000000000000, type: 0}
   maxStack: 1
   itemType: 2
   satietyRestore: 0
