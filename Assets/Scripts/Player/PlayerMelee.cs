@@ -13,12 +13,10 @@ public class PlayerMelee : MonoBehaviour
     [SerializeField] private float detectionRange = 8f;
     [SerializeField] private float detectionRadius = 0.4f;
 
-    // Эти свойства читает CombatCrosshairUI.
     public bool IsCombatActive { get; private set; }
     public bool IsAimingAtTarget { get; private set; }
     public bool HasTargetInReach { get; private set; }
 
-    // CombatCrosshairUI подписывается на это событие.
     public event Action OnHitConfirmed;
 
     private Camera mainCamera;
@@ -60,20 +58,37 @@ public class PlayerMelee : MonoBehaviour
         if (Time.time < nextAttackTime)
             return;
 
-        ItemData weapon = playerEquipment != null
-            ? playerEquipment.EquippedItem
-            : null;
+        ItemData weapon = playerEquipment != null ? playerEquipment.EquippedItem : null;
 
         float cooldown = weapon != null ? weapon.weaponCooldown : fistCooldown;
         nextAttackTime = Time.time + cooldown;
 
-        int damage = weapon != null ? weapon.weaponDamage : fistDamage;
+        int baseDamage = weapon != null ? weapon.weaponDamage : fistDamage;
+
+        // Множитель от травм рук
+        float mul = (playerHealth != null) ? playerHealth.MeleeDamageMultiplier : 1f;
+        int damage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * mul));
+
         string weaponName = weapon != null ? weapon.itemName : "Кулак";
 
         if (currentTarget != null && currentTarget.TakeDamage(damage))
         {
             Debug.Log($"Удар [{weaponName}]: {damage} урона.");
             OnHitConfirmed?.Invoke();
+
+            // Тратим прочность только если есть экипированное оружие (slotId)
+            if (playerEquipment != null && playerEquipment.EquippedSlotId >= 0 && InventoryManager.Instance != null)
+            {
+                bool broken;
+                if (InventoryManager.Instance.DamageDurability(playerEquipment.EquippedSlotId, 1, out broken))
+                {
+                    if (broken)
+                    {
+                        Debug.Log($"Оружие [{weaponName}] СЛОМАЛОСЬ!");
+                        playerEquipment.Unequip();
+                    }
+                }
+            }
         }
     }
 
@@ -85,14 +100,10 @@ public class PlayerMelee : MonoBehaviour
             if (mainCamera == null) return;
         }
 
-        ItemData weapon = playerEquipment != null
-            ? playerEquipment.EquippedItem
-            : null;
-
+        ItemData weapon = playerEquipment != null ? playerEquipment.EquippedItem : null;
         float attackRange = weapon != null ? weapon.weaponRange : fistRange;
 
-        Ray ray = new Ray(mainCamera.transform.position,
-                          mainCamera.transform.forward);
+        Ray ray = new Ray(mainCamera.transform.position, mainCamera.transform.forward);
 
         RaycastHit[] hits = Physics.SphereCastAll(
             ray.origin,
@@ -102,16 +113,14 @@ public class PlayerMelee : MonoBehaviour
             Physics.DefaultRaycastLayers,
             QueryTriggerInteraction.Ignore);
 
-        System.Array.Sort(hits, (a, b) =>
-            a.distance.CompareTo(b.distance));
+        Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
         IDamageable found = null;
         float foundDistance = float.MaxValue;
 
         foreach (RaycastHit hit in hits)
         {
-            if (hit.transform == transform ||
-                hit.transform.IsChildOf(transform))
+            if (hit.transform == transform || hit.transform.IsChildOf(transform))
                 continue;
 
             IDamageable target = hit.collider.GetComponent<IDamageable>();

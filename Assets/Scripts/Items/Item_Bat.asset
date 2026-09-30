@@ -21,3 +21,6 @@ MonoBehaviour:
   weaponDamage: 25
   weaponRange: 2
   weaponCooldown: 0.4
+  maxDurability: 100
+  spawnConditionMin: 0.3
+  spawnConditionMax: 0.9

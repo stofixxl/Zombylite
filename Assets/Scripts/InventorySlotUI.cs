@@ -10,7 +10,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     [SerializeField] private Image backgroundImage;
 
     private InventoryUI owner;
-    private ItemData currentItem;
+    private int slotId = -1;
 
     private void Awake() => FindComponents();
     private void OnValidate() => FindComponents();
@@ -32,31 +32,33 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             if (t != null) amountText = t.GetComponent<TextMeshProUGUI>();
         }
 
-        if (amountText == null) amountText = GetComponentInChildren<TextMeshProUGUI>();
-        if (iconImage == null) iconImage = GetComponentInChildren<Image>();
+        if (amountText == null) amountText = GetComponentInChildren<TextMeshProUGUI>(true);
+        if (iconImage == null) iconImage = GetComponentInChildren<Image>(true);
     }
 
-    // InventoryUI будет вызывать это при создании слота
-    public void Bind(InventoryUI owner, ItemData item, int amount)
+    // ВАЖНО: теперь передаём slotId
+    public void Bind(InventoryUI owner, int slotId, ItemData item, int amount, bool selected)
     {
         this.owner = owner;
-        currentItem = item;
+        this.slotId = slotId;
 
         if (backgroundImage != null)
             backgroundImage.raycastTarget = true;
 
         SetItem(item, amount);
+        SetSelected(selected);
     }
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (owner == null || currentItem == null) return;
-        owner.OnSlotClicked(currentItem, eventData.button);
+        if (owner == null || slotId < 0) return;
+        owner.OnSlotClicked(slotId, eventData.button);
     }
 
     public void SetSelected(bool selected)
     {
         if (backgroundImage == null) return;
+
         backgroundImage.color = selected
             ? new Color(0.2f, 0.6f, 1f, 0.6f)
             : Color.white;
@@ -64,7 +66,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
 
     public void SetEmpty()
     {
-        currentItem = null;
+        slotId = -1;
 
         if (iconImage != null)
         {

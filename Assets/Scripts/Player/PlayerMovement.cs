@@ -104,6 +104,8 @@ public class PlayerMovement : MonoBehaviour
             _ => moveSpeed
         };
 
+        float injuryMul = (playerHealth != null) ? playerHealth.MoveSpeedMultiplier : 1f;
+        speed *= injuryMul;
         Vector3 velocity = move * speed;
         velocity.y = rb.linearVelocity.y;
 

@@ -2,52 +2,50 @@ using UnityEngine;
 
 public class PlayerEquipment : MonoBehaviour
 {
-    // Текущий экипированный предмет. null — голые руки.
-    public ItemData EquippedItem { get; private set; }
+    public int EquippedSlotId { get; private set; } = -1;
 
-    // UI и другие скрипты смогут подписаться на смену оружия.
+    public ItemData EquippedItem
+    {
+        get
+        {
+            if (EquippedSlotId < 0) return null;
+            if (InventoryManager.Instance == null) return null;
+
+            if (InventoryManager.Instance.TryGetSlotById(EquippedSlotId, out var slot))
+                return slot.item;
+
+            return null;
+        }
+    }
+
     public System.Action OnEquipmentChanged;
 
-    // Экипировать предмет из инвентаря.
-    // Если передать null — снять оружие.
-    public bool TryEquip(ItemData item)
+    public bool TryEquipSlot(int slotId)
     {
-        if (item != null && item.itemType != ItemData.ItemType.Weapon)
+        if (InventoryManager.Instance == null)
+            return false;
+
+        if (!InventoryManager.Instance.TryGetSlotById(slotId, out var slot) || slot == null || slot.item == null)
+            return false;
+
+        if (slot.item.itemType != ItemData.ItemType.Weapon)
         {
-            Debug.Log($"{item.itemName} нельзя экипировать: это не оружие.");
+            Debug.Log($"{slot.item.itemName} нельзя экипировать: это не оружие.");
             return false;
         }
 
-        EquippedItem = item;
+        EquippedSlotId = slotId;
         OnEquipmentChanged?.Invoke();
-
-        string name = item != null ? item.itemName : "Кулаки";
-        Debug.Log($"Экипировано: {name}");
+        Debug.Log($"Экипировано: {slot.item.itemName} (id={slotId})");
         return true;
     }
 
-    // Снять оружие.
     public void Unequip()
     {
-        TryEquip(null);
-    }
-    [Header("Только для теста через Inspector")]
-    [SerializeField] private ItemData testEquipItem;
+        if (EquippedSlotId == -1) return;
 
-    [ContextMenu("Тест: экипировать предмет")]
-    private void TestEquip()
-    {
-        if (testEquipItem == null)
-        {
-            Debug.LogWarning("Не назначен Test Equip Item.");
-            return;
-        }
-
-        TryEquip(testEquipItem);
-    }
-    [ContextMenu("Тест: снять оружие")]
-    private void TestUnequip()
-    {
-        Unequip();
+        EquippedSlotId = -1;
+        OnEquipmentChanged?.Invoke();
+        Debug.Log("Экипировано: Кулаки");
     }
 }

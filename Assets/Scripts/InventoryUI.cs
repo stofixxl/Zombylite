@@ -18,8 +18,8 @@ public class InventoryUI : MonoBehaviour
 
     private void Start()
     {
-        equipment = FindFirstObjectByType<PlayerEquipment>();
-        itemUse = FindFirstObjectByType<PlayerItemUse>();
+        equipment = FindAnyObjectByType<PlayerEquipment>();
+        itemUse = FindAnyObjectByType<PlayerItemUse>();
 
         if (InventoryManager.Instance != null)
             InventoryManager.Instance.OnInventoryChanged += RefreshUI;
@@ -67,28 +67,36 @@ public class InventoryUI : MonoBehaviour
     }
 
     // Вызывается из InventorySlotUI при клике
-    public void OnSlotClicked(ItemData item, PointerEventData.InputButton button)
+    public void OnSlotClicked(int slotId, PointerEventData.InputButton button)
     {
-        if (item == null) return;
-        if (button != PointerEventData.InputButton.Left) return;
+        if (button != PointerEventData.InputButton.Left)
+            return;
 
-        // ЛКМ по оружию — экипировать/снять
+        if (InventoryManager.Instance == null)
+            return;
+
+        if (!InventoryManager.Instance.TryGetSlotById(slotId, out var slot) || slot == null || slot.item == null)
+            return;
+
+        ItemData item = slot.item;
+
+        // Оружие: экипировать/снять по slotId
         if (item.itemType == ItemData.ItemType.Weapon)
         {
-            if (equipment == null) equipment = FindFirstObjectByType<PlayerEquipment>();
+            if (equipment == null) equipment = FindAnyObjectByType<PlayerEquipment>();
             if (equipment == null) return;
 
-            if (equipment.EquippedItem == item)
+            if (equipment.EquippedSlotId == slotId)
                 equipment.Unequip();
             else
-                equipment.TryEquip(item);
+                equipment.TryEquipSlot(slotId);
 
             RefreshUI();
         }
-        // ЛКМ по еде — использовать
+        // Еда: использовать по ItemData (стаки)
         else if (item.itemType == ItemData.ItemType.Consumable)
         {
-            if (itemUse == null) itemUse = FindFirstObjectByType<PlayerItemUse>();
+            if (itemUse == null) itemUse = FindAnyObjectByType<PlayerItemUse>();
             if (itemUse == null) return;
 
             itemUse.TryUseItem(item);
@@ -100,6 +108,8 @@ public class InventoryUI : MonoBehaviour
     {
         if (InventoryManager.Instance == null) return;
 
+        if (equipment == null) equipment = FindAnyObjectByType<PlayerEquipment>();
+
         // Удаляем старые UI-слоты
         foreach (var slot in uiSlots)
         {
@@ -108,18 +118,14 @@ public class InventoryUI : MonoBehaviour
         }
         uiSlots.Clear();
 
-        // Получаем только занятые слоты
         var occupiedSlots = InventoryManager.Instance.GetAllSlots();
 
-        // Создаём UI только для существующих предметов
         foreach (var slot in occupiedSlots)
         {
-            InventorySlotUI newSlot = Instantiate(slotPrefab, content);
-            newSlot.Bind(this, slot.item, slot.amount);
+            bool selected = (equipment != null && equipment.EquippedSlotId == slot.id);
 
-            // подсветка экипированного оружия
-            if (equipment != null && equipment.EquippedItem != null && slot.item == equipment.EquippedItem)
-                newSlot.SetSelected(true);
+            InventorySlotUI newSlot = Instantiate(slotPrefab, content);
+            newSlot.Bind(this, slot.id, slot.item, slot.amount, selected);
 
             uiSlots.Add(newSlot);
         }

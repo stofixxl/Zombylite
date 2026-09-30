@@ -27,6 +27,18 @@ public class ItemData : ScriptableObject
     [Min(0f)]
     public float weaponCooldown = 0.5f;
 
+    [Header("Прочность (для оружия/инструментов)")]
+    [Min(1)]
+    public int maxDurability = 100;
+
+    [Tooltip("Минимальное состояние предмета при спавне (0..1). Например 0.3 = 30% прочности.")]
+    [Range(0f, 1f)]
+    public float spawnConditionMin = 0.5f;
+
+    [Tooltip("Максимальное состояние предмета при спавне (0..1). Например 0.9 = 90% прочности.")]
+    [Range(0f, 1f)]
+    public float spawnConditionMax = 1.0f;
+
     public enum ItemType
     {
         Misc,

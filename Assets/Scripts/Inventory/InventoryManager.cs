@@ -8,13 +8,19 @@ public class InventoryManager : MonoBehaviour
     [System.Serializable]
     public class InventorySlot
     {
+        public int id;                 // уникальный ID слота (важно для экипировки)
         public ItemData item;
         public int amount;
 
-        public InventorySlot(ItemData item, int amount)
+        // Для оружия/инструментов (когда maxStack = 1).
+        public int durability;
+
+        public InventorySlot(int id, ItemData item, int amount, int durability)
         {
+            this.id = id;
             this.item = item;
             this.amount = amount;
+            this.durability = durability;
         }
     }
 
@@ -22,16 +28,14 @@ public class InventoryManager : MonoBehaviour
     public int maxSlots = 20;
 
     private List<InventorySlot> slots = new List<InventorySlot>();
+    private int nextSlotId = 1;
 
-    // UI сможет подписаться на это событие и обновляться после изменений.
     public System.Action OnInventoryChanged;
 
     private void Awake()
     {
-        if (Instance == null)
-            Instance = this;
-        else
-            Destroy(gameObject);
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
     }
 
     public bool AddItem(ItemData item, int amount = 1)
@@ -41,8 +45,7 @@ public class InventoryManager : MonoBehaviour
 
         int stackSize = Mathf.Max(1, item.maxStack);
 
-        // Сначала проверяем, поместится ли ВСЁ количество.
-        // Пока ничего в инвентаре не меняем.
+        // Проверка: хватит ли места под ВСЁ
         long freeSpace = 0;
 
         foreach (var slot in slots)
@@ -57,26 +60,35 @@ public class InventoryManager : MonoBehaviour
         if (freeSpace < amount)
             return false;
 
-        // Теперь точно знаем, что места хватает.
         int remaining = amount;
 
-        foreach (var slot in slots)
+        // Стакаем только если стак > 1
+        if (stackSize > 1)
         {
-            if (slot.item != item || slot.amount >= stackSize)
-                continue;
+            foreach (var slot in slots)
+            {
+                if (slot.item != item || slot.amount >= stackSize)
+                    continue;
 
-            int toAdd = Mathf.Min(stackSize - slot.amount, remaining);
-            slot.amount += toAdd;
-            remaining -= toAdd;
+                int toAdd = Mathf.Min(stackSize - slot.amount, remaining);
+                slot.amount += toAdd;
+                remaining -= toAdd;
 
-            if (remaining == 0)
-                break;
+                if (remaining == 0)
+                    break;
+            }
         }
 
+        // Создаём новые слоты
         while (remaining > 0)
         {
             int toAdd = Mathf.Min(stackSize, remaining);
-            slots.Add(new InventorySlot(item, toAdd));
+
+            int durability = 0;
+            if (item.itemType == ItemData.ItemType.Weapon || item.itemType == ItemData.ItemType.Tool)
+                durability = GetRandomSpawnDurability(item);
+
+            slots.Add(new InventorySlot(nextSlotId++, item, toAdd, durability));
             remaining -= toAdd;
         }
 
@@ -89,14 +101,10 @@ public class InventoryManager : MonoBehaviour
         if (item == null || amount <= 0)
             return false;
 
-        // Проверяем количество ДО удаления.
         long totalAmount = 0;
-
         foreach (var slot in slots)
-        {
             if (slot.item == item)
                 totalAmount += slot.amount;
-        }
 
         if (totalAmount < amount)
             return false;
@@ -120,23 +128,96 @@ public class InventoryManager : MonoBehaviour
         return true;
     }
 
+    // НОВОЕ: попытаться получить внутренний слот по id
+    public bool TryGetSlotById(int slotId, out InventorySlot slot)
+    {
+        for (int i = 0; i < slots.Count; i++)
+        {
+            if (slots[i].id == slotId)
+            {
+                slot = slots[i];
+                return true;
+            }
+        }
+
+        slot = null;
+        return false;
+    }
+
+    // НОВОЕ: уронить прочность слота. Если сломался — слот удаляется.
+    public bool DamageDurability(int slotId, int damageAmount, out bool broken)
+    {
+        broken = false;
+
+        if (damageAmount <= 0)
+            return false;
+
+        for (int i = 0; i < slots.Count; i++)
+        {
+            if (slots[i].id != slotId)
+                continue;
+
+            InventorySlot s = slots[i];
+
+            // Если это не оружие/инструмент — durability не трогаем
+            if (s.item == null || (s.item.itemType != ItemData.ItemType.Weapon && s.item.itemType != ItemData.ItemType.Tool))
+                return false;
+
+            // На всякий: durability у оружия не должен быть 0 при нормальной генерации
+            if (s.durability <= 0)
+                s.durability = Mathf.Max(1, s.item.maxDurability);
+
+            s.durability -= damageAmount;
+
+            if (s.durability <= 0)
+            {
+                // сломался
+                broken = true;
+                slots.RemoveAt(i);
+            }
+
+            OnInventoryChanged?.Invoke();
+            return true;
+        }
+
+        return false;
+    }
+
     public List<InventorySlot> GetAllSlots()
     {
-        // Возвращаем копии, чтобы UI не мог случайно изменить
-        // содержимое инвентаря в обход AddItem и RemoveItem.
-        List<InventorySlot> result = new List<InventorySlot>();
+        // Копии, чтобы UI не менял инвентарь напрямую
+        List<InventorySlot> result = new List<InventorySlot>(slots.Count);
 
         foreach (var slot in slots)
-            result.Add(new InventorySlot(slot.item, slot.amount));
+            result.Add(new InventorySlot(slot.id, slot.item, slot.amount, slot.durability));
 
         return result;
     }
-    [ContextMenu("Показать инвентарь в Console")]
+
     public void DebugInventory()
     {
         Debug.Log("=== ИНВЕНТАРЬ ===");
-
         foreach (var slot in slots)
-            Debug.Log($"{slot.item.itemName} x{slot.amount}");
+        {
+            string extra = "";
+            if (slot.item != null && (slot.item.itemType == ItemData.ItemType.Weapon || slot.item.itemType == ItemData.ItemType.Tool))
+                extra = $" (dur {slot.durability}/{slot.item.maxDurability})";
+
+            Debug.Log($"{slot.item.itemName} x{slot.amount}{extra} [id={slot.id}]");
+        }
+    }
+
+    private int GetRandomSpawnDurability(ItemData item)
+    {
+        int maxD = Mathf.Max(1, item.maxDurability);
+
+        float min = Mathf.Clamp01(item.spawnConditionMin);
+        float max = Mathf.Clamp01(item.spawnConditionMax);
+        if (max < min) max = min;
+
+        float k = Random.Range(min, max);
+        int d = Mathf.RoundToInt(maxD * k);
+
+        return Mathf.Clamp(d, 1, maxD);
     }
 }
